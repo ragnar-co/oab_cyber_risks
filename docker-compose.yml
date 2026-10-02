@@ -1,0 +1,13 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      AUTOLOAD_SAMPLE: "true"
+    volumes:
+      - cyber_risk_data:/data
+    restart: unless-stopped
+
+volumes:
+  cyber_risk_data:

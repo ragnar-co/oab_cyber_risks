@@ -14,6 +14,33 @@ uv run pytest                    # tests จาก TESTING_STRATEGY.md
 
 DB อยู่ที่ `data/cyber_risk.duckdb` (เปลี่ยนได้ด้วย env `CYBER_RISK_DB`) — DuckDB เปิดเขียนได้ครั้งละ process เดียว
 
+## Docker
+
+```bash
+docker compose up -d --build     # http://localhost:8501
+docker compose logs -f
+docker compose down              # เก็บ volume ไว้; เพิ่ม -v เพื่อลบข้อมูล
+```
+
+| Env | Default | ความหมาย |
+|---|---|---|
+| `CYBER_RISK_DB` | `/data/cyber_risk.duckdb` | ไฟล์ DuckDB (ต้องอยู่บน persistent volume) |
+| `AUTOLOAD_SAMPLE` | `true` | โหลด CSV ตัวอย่างเมื่อ DB ยังว่าง |
+| `DB_LOCK_WAIT_SECONDS` | `60` | เวลารอ lock ของ DuckDB ระหว่าง redeploy |
+
+## Deploy (Coolify)
+
+1. **New Resource** → เลือก repo นี้ (GitHub App หรือ Deploy Key) · branch `main`
+2. **Build Pack:** `Dockerfile` · **Ports Exposes:** `8501`
+3. **Domains:** ใส่ `https://<your-domain>` (DNS A record ชี้ไป server) — Coolify ออก TLS ให้
+4. **Persistent Storage** → Add Volume · Destination Path: `/data` (ไม่ใส่ = ข้อมูลหายทุกครั้งที่ redeploy)
+5. **Environment Variables:** ตั้ง `AUTOLOAD_SAMPLE` ตามต้องการ
+6. **Deploy** → ดู Logs จนขึ้น `healthy` (healthcheck: `/_stcore/health`)
+
+ข้อจำกัด:
+- รันได้ **1 instance เท่านั้น** (DuckDB = 1 writer process ต่อไฟล์) ห้าม scale replicas
+- แอป **ไม่มี authentication** — ต้องป้องกันที่ชั้น proxy / network ก่อนเปิดให้เข้าถึงจาก internet
+
 ## Dashboard
 
 | ส่วน | เนื้อหา | Metric |

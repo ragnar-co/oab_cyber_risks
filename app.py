@@ -8,9 +8,11 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import altair as alt
+import duckdb
 import pandas as pd
 import streamlit as st
 
@@ -21,6 +23,8 @@ from cyber_risk import pipeline, queries  # noqa: E402
 
 DB_PATH = Path(os.environ.get("CYBER_RISK_DB", ROOT / "data" / "cyber_risk.duckdb"))
 SAMPLE_PATH = ROOT / "data" / "sample" / "oab_cyber_risks_2_5mb.csv.zip"
+AUTOLOAD_SAMPLE = os.environ.get("AUTOLOAD_SAMPLE", "true").lower() == "true"
+DB_LOCK_WAIT_SECONDS = int(os.environ.get("DB_LOCK_WAIT_SECONDS", "60"))
 ALL_BU = "ทั้งหมด (All Business Units)"
 
 # VIZ_DESIGN_SPEC.md — Palette. No red/yellow/green for risk score: no
@@ -35,8 +39,20 @@ st.set_page_config(page_title="Client Cyber Risk Dashboard", layout="wide")
 
 @st.cache_resource
 def get_connection():
+    """Open the DuckDB file, waiting while another process holds its lock.
+
+    DuckDB allows one writer process per file. During a rolling redeploy the
+    new container starts before the old one stops, so retry instead of failing.
+    """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    return pipeline.connect(DB_PATH)
+    deadline = time.monotonic() + DB_LOCK_WAIT_SECONDS
+    while True:
+        try:
+            return pipeline.connect(DB_PATH)
+        except duckdb.IOException as exc:
+            if "lock" not in str(exc).lower() or time.monotonic() > deadline:
+                raise
+            time.sleep(2)
 
 
 con = get_connection()
@@ -48,7 +64,12 @@ def run_ingest(path: Path, name: str) -> None:
 
 
 # First run: load the bundled sample so the dashboard is never empty.
-if queries.current_snapshot(con) is None and SAMPLE_PATH.exists() and "last_ingest" not in st.session_state:
+if (
+    AUTOLOAD_SAMPLE
+    and queries.current_snapshot(con) is None
+    and SAMPLE_PATH.exists()
+    and "last_ingest" not in st.session_state
+):
     run_ingest(SAMPLE_PATH, SAMPLE_PATH.name)
 
 
