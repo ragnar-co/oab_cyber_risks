@@ -1,0 +1,25 @@
+[project]
+name = "client-cyber-risk-dashboard"
+version = "1.0.0"
+description = "Client Cyber Risk Dashboard: CSV ingestion, validation, DuckDB storage and management dashboard"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.1",
+    "pandas>=2.2",
+    "streamlit>=1.40",
+    "altair>=5.4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cyber_risk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
