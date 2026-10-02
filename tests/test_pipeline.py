@@ -212,3 +212,22 @@ def test_mv008_risk_matrix_filtered(loaded):
     m = queries.risk_matrix(loaded, bu=bu_key(loaded, "HR"))
     assert len(m) == 25
     assert m.unresolved_risk_count.sum() == 640
+
+
+# --- Dashboard smoke (Streamlit AppTest) -----------------------------------------
+
+def test_dashboard_renders_and_filters(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setenv("CYBER_RISK_DB", str(tmp_path / "app.duckdb"))
+    app = Path(__file__).resolve().parents[1] / "app.py"
+    at = AppTest.from_file(str(app), default_timeout=60).run()
+    assert not at.exception
+    html = " ".join(h.proto.body for h in at.get("html"))
+    assert "10,507" in html and "7,979" in html and "R000004" in html
+
+    at.selectbox(key="bu_filter").select("HR").run()
+    assert not at.exception
+    html = " ".join(h.proto.body for h in at.get("html"))
+    assert "R000608" in html and "640" in html
+    assert at.query_params["bu"] == ["HR"]
